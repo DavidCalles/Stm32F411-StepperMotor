@@ -100,12 +100,7 @@ ParserReturnVal_t StepperEnable()
 {
   uint16_t argument = 0;
   if (!fetch_uint16_arg(&argument)){
-    if(argument != 1 || argument != 0){
-      printf("Invalid argument(s)\n"
-        "Please enter (1) to enable the motor or (0) to disable it.\n");
-      return CmdReturnOk;
-    }
-    else{
+    if((argument == 1) || (argument == 0)){
       // Low = enable, High = disable (Output enable)
       HAL_GPIO_WritePin(OE_PORT, OE_PIN, !argument);
       // Low = Standby, High = Operating (Power save)
@@ -121,12 +116,18 @@ ParserReturnVal_t StepperEnable()
       // High = Max current, Low = Min current. (VREF)
       HAL_GPIO_WritePin(VREF_PORT, VREF_PIN, GPIO_PIN_SET);
       // High = CCW, Low = CW. (Motor direction)
-      HAL_GPIO_WritePin(FR_PORT, FR_PIN, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(FR_PORT, FR_PIN, GPIO_PIN_SET);
+    }
+    else{
+      printf("Invalid argument(s)\n"
+        "Please enter (1) to enable the motor or (0) to disable it.\n");
+      return CmdReturnOk;
     }  
   }
   else{
     printf("No argument received.\n"
         "Please enter (1) to enable the motor or (0) to disable it.\n");
+    return CmdReturnOk;
   }
 
   return CmdReturnOk;
@@ -155,6 +156,7 @@ ParserReturnVal_t Step()
       for(int32_t j = 0; j< numSteps*2; j++){  
         //sets the values entered to the GPIO pins entered 
         HAL_GPIO_TogglePin(STEP_PORT, STEP_PIN); 
+        WDTFeed();
         HAL_Delay(delayms);
       }
     }

@@ -6,7 +6,7 @@
 PROJ_NAME = simple_monitor
 SRCS  = my_main.c mycode.s mytest.c example.c \
  		SimpleCommand.c GPIOcmd.c ADCcmd.c \
-		TimerCmd2.c
+		TimerCmd2.c StepperCmd.c
 BUILD = build
 #PROCESSOR = STM32G474xx
 #PROCESSOR = STM32L432xx
