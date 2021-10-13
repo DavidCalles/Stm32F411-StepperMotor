@@ -1,9 +1,10 @@
 /**************************************************************************
-* File Name         SimpleCommand.c
-* Description       Print tests with and without string argument.
+* File Name         StepperCmd.c
+* Description       Initializes stepper motor and makes it step by requested
+*                   number of steps and providing delay using interrupts.
 *				          
 * Date				          Name(s)						          Action
-* September 20, 2021		Jaskaran K. & David C.			First Implementation
+* October 12, 2021		Jaskaran K. & David C.			First Implementation
 ***************************************************************************/
 
 /**************************************************************************
@@ -68,7 +69,7 @@ uint8_t tIndex = 0;                   // index of current timer
 
 /*--------------------------------------------------------------------------
 *	Name:			    StepperInitialize
-*	Description:	
+*	Description:	Initializes the stepper motor and timers
 *	Parameters:		void
 *
 *	Returns:		ret: CmdReturnOk = 0 if Okay.
@@ -109,7 +110,6 @@ ParserReturnVal_t StepperInitialize()
   HAL_GPIO_Init(GPIOC, &My_GPIO_InitStructCIn);
 
   // Set up interrupt with timer3
-
   __HAL_RCC_TIM3_CLK_ENABLE();
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   htim3.Instance = TIM3;
@@ -140,11 +140,11 @@ ADD_CMD("stepperinit", StepperInitialize,"\t\tInitialize GPIO pins to control th
 
 
 /*--------------------------------------------------------------------------
-*	Name:			    
-*	Description:	
+*	Name:			    StepperEnable
+*	Description:	Enables or Disables stepper motor based on argument passed
 *	Parameters:		void
 *
-*	Returns:		ret: CmdReturnOk = 0 if Okay.
+*	Returns:		  ret: CmdReturnOk = 0 if Okay.
 ---------------------------------------------------------------------------*/
 ParserReturnVal_t StepperEnable()
 {
@@ -189,8 +189,8 @@ ParserReturnVal_t StepperEnable()
 ADD_CMD("stepperenable", StepperEnable,"\t\tEnables or disables the stepper motor controller")
 
 /*--------------------------------------------------------------------------
-*	Name:			    
-*	Description:	 
+*	Name:			    Step
+*	Description:	Makes stepper step for given delay and number of steps
 *	Parameters:		void
 *
 *	Returns:		ret: CmdReturnOk = 0 if Okay.
@@ -227,8 +227,8 @@ ParserReturnVal_t Step()
 ADD_CMD("step", Step, "\t\tOutput a given number of steps")
 
 /*--------------------------------------------------------------------------
-*	Name:			    
-*	Description:	 
+*	Name:			    Step2
+*	Description:	Makes stepper step for given delay and number of steps
 *	Parameters:		void
 *
 *	Returns:		ret: CmdReturnOk = 0 if Okay.
@@ -346,8 +346,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 }
 
 /*--------------------------------------------------------------------------
-*	Name:			    
-*	Description:	 
+*	Name:			    StepReset
+*	Description:	Reset the queue of timers
 *	Parameters:		void
 *
 *	Returns:		ret: CmdReturnOk = 0 if Okay.
