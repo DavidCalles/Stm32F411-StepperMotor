@@ -79,27 +79,36 @@ ParserReturnVal_t StepperInitialize()
   GPIO_InitTypeDef My_GPIO_InitStructA = {0};  
   GPIO_InitTypeDef My_GPIO_InitStructB = {0};  
   GPIO_InitTypeDef My_GPIO_InitStructC = {0};  
+  GPIO_InitTypeDef My_GPIO_InitStructCIn = {0}; 
  
   My_GPIO_InitStructA.Pin = (uint16_t)(GPIO_PIN_4);
 
   My_GPIO_InitStructA.Mode = GPIO_MODE_OUTPUT_PP;
   My_GPIO_InitStructA.Pull = GPIO_NOPULL;
-  My_GPIO_InitStructA.Speed = GPIO_SPEED_FREQ_LOW;
+  My_GPIO_InitStructA.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOA, &My_GPIO_InitStructA);
 
   My_GPIO_InitStructB.Pin = (uint16_t)(GPIO_PIN_14);
 
   My_GPIO_InitStructB.Mode = GPIO_MODE_OUTPUT_PP;
   My_GPIO_InitStructB.Pull = GPIO_NOPULL;
-  My_GPIO_InitStructB.Speed = GPIO_SPEED_FREQ_LOW;
+  My_GPIO_InitStructB.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOB, &My_GPIO_InitStructB);
 
-  My_GPIO_InitStructC.Pin = (uint16_t)(GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_8 | GPIO_PIN_9);
+  My_GPIO_InitStructC.Pin = (uint16_t)(GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_8);
 
   My_GPIO_InitStructC.Mode = GPIO_MODE_OUTPUT_PP;
   My_GPIO_InitStructC.Pull = GPIO_NOPULL;
-  My_GPIO_InitStructC.Speed = GPIO_SPEED_FREQ_LOW;
+  My_GPIO_InitStructC.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOC, &My_GPIO_InitStructC);
+
+  // Setup MONI as Input
+  My_GPIO_InitStructCIn.Pin = GPIO_PIN_9;
+  My_GPIO_InitStructCIn.Mode = GPIO_MODE_INPUT;
+  My_GPIO_InitStructCIn.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOC, &My_GPIO_InitStructCIn);
+
+  // Set up interrupt with timer3
 
   __HAL_RCC_TIM3_CLK_ENABLE();
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
@@ -142,12 +151,14 @@ ParserReturnVal_t StepperEnable()
   uint16_t argument = 0;
   if (!fetch_uint16_arg(&argument)){
     if((argument == 1) || (argument == 0)){
+      // Step pin inititates in LOW (Step signal)
+      HAL_GPIO_WritePin(STEP_PORT, STEP_PIN, GPIO_PIN_SET);
+      HAL_Delay(5);
+      HAL_GPIO_WritePin(STEP_PORT, STEP_PIN, GPIO_PIN_RESET);
       // Low = enable, High = disable (Output enable)
-      HAL_GPIO_WritePin(OE_PORT, OE_PIN, argument);
+      HAL_GPIO_WritePin(OE_PORT, OE_PIN, !argument);
       // Low = Standby, High = Operating (Power save)
       HAL_GPIO_WritePin(PS_PORT, PS_PIN, argument);
-      // Step pin inititates in LOW (Step signal)
-      HAL_GPIO_WritePin(STEP_PORT, STEP_PIN, GPIO_PIN_RESET);
       // High = Normal, Low = Reset. (Reset)
       HAL_GPIO_WritePin(RST_PORT, RST_PIN, GPIO_PIN_SET);
       // MD1=1, MD2=1 = 2W1-2 phase excitation (Excitation mode)
@@ -157,7 +168,7 @@ ParserReturnVal_t StepperEnable()
       // High = Max current, Low = Min current. (VREF)
       HAL_GPIO_WritePin(VREF_PORT, VREF_PIN, GPIO_PIN_SET);
       // High = CCW, Low = CW. (Motor direction)
-      HAL_GPIO_WritePin(FR_PORT, FR_PIN, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(FR_PORT, FR_PIN, GPIO_PIN_RESET);
     }
     else{
       printf("Invalid argument(s)\n"
@@ -236,17 +247,23 @@ ParserReturnVal_t Step2(int action)
     return CmdReturnOk;
   }
   // Get arguments from command line
-  uint32_t arguments[2] = {0};
+  int32_t arguments[2] = {0};
   for(int i=0; i<2; i++){
-    if(fetch_uint32_arg(&arguments[i])){
+    if(fetch_int32_arg(&arguments[i])){
       printf("Insuficient number of arguments. \n "
       "Type <help step> to get more information.\n");
     }
   }
   
+  // Set direction according to number of steps
+  if (arguments[0] > 0)
+    HAL_GPIO_WritePin(FR_PORT, FR_PIN, GPIO_PIN_RESET);
+  else
+    HAL_GPIO_WritePin(FR_PORT, FR_PIN, GPIO_PIN_SET);
+
   /* Fill in new timer */
-  timers[tIndex].timeout = arguments[1];
-  timers[tIndex].remainingSteps = 2 * arguments[0];
+  timers[tIndex].timeout = (uint32_t)arguments[1];
+  timers[tIndex].remainingSteps = 2 * (uint32_t)arguments[0];
   timers[tIndex].flag = 0;
   timers[tIndex].current = 0;
   timers[tIndex].enable = 1;
