@@ -42,13 +42,32 @@
 #define MONI_PORT GPIOC
 
 
+#define MAX_TIMERS 16         // maximum number of timers
+
+/**************************************************************************
+------------------------------- VARIABLE TYPES ----------------------------
+***************************************************************************/
+typedef struct{
+  uint32_t timeout;     // virtual counter timeout
+  uint32_t current;     // virtual counter current value
+  uint8_t flag;         // ready flag
+  uint8_t enable;       // Current status of virtual timer
+  uint32_t remainingSteps; // missing toggles to perform
+}V_TIMER;
+
+/**************************************************************************
+---------------------------- GLOBAL VARIABLES --------------------------
+***************************************************************************/
+TIM_HandleTypeDef htim3;              // Timer Handler 
+volatile V_TIMER timers[MAX_TIMERS];  // Timer instances
+uint8_t tIndex = 0;                   // index of current timer
 
 /**************************************************************************
 ------------------------ OWN FUNCTION DEFINITIONS -------------------------
 ***************************************************************************/
 
 /*--------------------------------------------------------------------------
-*	Name:			    
+*	Name:			    StepperInitialize
 *	Description:	
 *	Parameters:		void
 *
@@ -82,6 +101,28 @@ ParserReturnVal_t StepperInitialize()
   My_GPIO_InitStructC.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &My_GPIO_InitStructC);
 
+  __HAL_RCC_TIM3_CLK_ENABLE();
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 1000;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = HAL_RCC_GetPCLK2Freq() / 1000000 - 1;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    printf("Error 1 initializing the timer\n");
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    printf("Error 2 initializing the timer\n");
+  }
+  HAL_NVIC_SetPriority((IRQn_Type) TIM3_IRQn, (uint32_t) 0, (uint32_t) 1);
+  HAL_NVIC_EnableIRQ((IRQn_Type) TIM3_IRQn);
+  // Start timer
+  HAL_TIM_Base_Start_IT(&htim3);
+
   return CmdReturnOk;
 }
 
@@ -102,7 +143,7 @@ ParserReturnVal_t StepperEnable()
   if (!fetch_uint16_arg(&argument)){
     if((argument == 1) || (argument == 0)){
       // Low = enable, High = disable (Output enable)
-      HAL_GPIO_WritePin(OE_PORT, OE_PIN, !argument);
+      HAL_GPIO_WritePin(OE_PORT, OE_PIN, argument);
       // Low = Standby, High = Operating (Power save)
       HAL_GPIO_WritePin(PS_PORT, PS_PIN, argument);
       // Step pin inititates in LOW (Step signal)
@@ -135,8 +176,6 @@ ParserReturnVal_t StepperEnable()
 
 // MACRO: Add new command to help menu
 ADD_CMD("stepperenable", StepperEnable,"\t\tEnables or disables the stepper motor controller")
-
-
 
 /*--------------------------------------------------------------------------
 *	Name:			    
@@ -175,3 +214,135 @@ ParserReturnVal_t Step()
 
 // MACRO: Add new command to help menu
 ADD_CMD("step", Step, "\t\tOutput a given number of steps")
+
+/*--------------------------------------------------------------------------
+*	Name:			    
+*	Description:	 
+*	Parameters:		void
+*
+*	Returns:		ret: CmdReturnOk = 0 if Okay.
+---------------------------------------------------------------------------*/
+ParserReturnVal_t Step2(int action)
+{ 
+
+  // Help messages
+  if(action==CMD_SHORT_HELP) return CmdReturnOk;
+  if(action==CMD_LONG_HELP) {
+    printf("step <step_count> <delay_ms>\n\n"
+	   "This command Initialize a virtual timer instance.\n"
+     "step_count: number of steps.\n"
+     "delay_ms: delay in miliseconds.\n"
+	  );
+    return CmdReturnOk;
+  }
+  // Get arguments from command line
+  uint32_t arguments[2] = {0};
+  for(int i=0; i<2; i++){
+    if(fetch_uint32_arg(&arguments[i])){
+      printf("Insuficient number of arguments. \n "
+      "Type <help step> to get more information.\n");
+    }
+  }
+  
+  /* Fill in new timer */
+  timers[tIndex].timeout = arguments[1];
+  timers[tIndex].remainingSteps = 2 * arguments[0];
+  timers[tIndex].flag = 0;
+  timers[tIndex].current = 0;
+  timers[tIndex].enable = 1;
+
+  /* Position of next node */
+  tIndex++;
+
+  return CmdReturnOk;
+}
+
+// MACRO: Add new command to help menu
+ADD_CMD("step2", Step2, "\t\tOutput a given number of steps")
+
+/*--------------------------------------------------------------------------
+*	Name:			    VirtualTimers
+*	Description:	interrupt routine to update all virtual timers as well as 
+*               their corresponding GPIO pins
+*	Parameters:		void
+*
+*	Returns:		  void
+---------------------------------------------------------------------------*/
+void VirtualTimers()
+{ 
+  // Traverse all virtual timer instances
+
+  for(uint8_t i=0; i<tIndex; i++){
+
+    if(timers[i].enable)
+    {
+      // Timer has reached its desired value
+      if(timers[i].current >= timers[i].timeout)
+      {
+        timers[i].flag = 1;
+        HAL_GPIO_TogglePin(STEP_PORT, STEP_PIN); 
+        // Check if timer is repetitive
+        if (timers[i].remainingSteps > 0)
+        {
+          timers[i].current = 0;
+          timers[i].remainingSteps--;
+        }
+        else
+        {
+          // Disable it if not repetitive
+          timers[i].enable = 0;
+        }  
+      }
+      else
+      {
+        // Normal increment
+        timers[i].current++;
+        timers[i].flag = 0;
+      }
+    }
+  }
+}
+
+/*--------------------------------------------------------------------------
+*	Name:			    TIM3_IRQHandler
+*	Description:  Timer 3 Interrupt handler
+*	Parameters:		void
+*
+*	Returns:		  void
+---------------------------------------------------------------------------*/
+void TIM3_IRQHandler(void)
+{
+  // This will call for "HAL_TIM_PeriodElapsedCallback()" on timer update 
+  HAL_TIM_IRQHandler(&htim3);
+}
+
+/*--------------------------------------------------------------------------
+*	Name:			    HAL_TIM_PeriodElapsedCallback
+*	Description:	Callbacks for timer overflow/update event
+*	Parameters:		TIM_HandleTypeDef *htim : timer peripheral handler
+*
+*	Returns:		  void
+---------------------------------------------------------------------------*/
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+  //HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+  VirtualTimers();
+}
+
+/*--------------------------------------------------------------------------
+*	Name:			    
+*	Description:	 
+*	Parameters:		void
+*
+*	Returns:		ret: CmdReturnOk = 0 if Okay.
+---------------------------------------------------------------------------*/
+ParserReturnVal_t StepReset(int action)
+{ 
+  
+  tIndex = 0;
+  HAL_GPIO_WritePin(STEP_PORT, STEP_PIN, GPIO_PIN_RESET);
+
+  return CmdReturnOk;
+}
+
+// MACRO: Add new command to help menu
+ADD_CMD("stepreset", StepReset, "\t\tReset the queue of timers")
