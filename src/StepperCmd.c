@@ -42,6 +42,8 @@
 #define MONI_PIN GPIO_PIN_9
 #define MONI_PORT GPIOC
 
+uint16_t pins[] = {OE_PIN, RST_PIN, PS_PIN, STEP_PIN, FR_PIN, VREF_PIN};
+uint16_t ports[] = {OE_PORT, RST_PORT, PS_PORT, STEP_PIN, FR_PORT, VREF_PORT};
 
 #define MAX_TIMERS 16         // maximum number of timers
 
@@ -77,37 +79,44 @@ uint8_t tIndex = 0;                   // index of current timer
 ParserReturnVal_t StepperInitialize()
 {
   
-  GPIO_InitTypeDef My_GPIO_InitStructA = {0};  
-  GPIO_InitTypeDef My_GPIO_InitStructB = {0};  
+  GPIO_InitTypeDef My_GPIO_InitStructA = {0};
+  GPIO_InitTypeDef My_GPIO_InitStructB = {0};
   GPIO_InitTypeDef My_GPIO_InitStructC = {0};  
-  GPIO_InitTypeDef My_GPIO_InitStructCIn = {0}; 
- 
-  My_GPIO_InitStructA.Pin = (uint16_t)(GPIO_PIN_4);
 
-  My_GPIO_InitStructA.Mode = GPIO_MODE_OUTPUT_PP;
-  My_GPIO_InitStructA.Pull = GPIO_NOPULL;
-  My_GPIO_InitStructA.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOA, &My_GPIO_InitStructA);
+  for(int i = 0; i< 6; i++){
+    if(ports[i] == GPIOA){
+      My_GPIO_InitStructA.Pin |= (pins[i]);
+    }
+    if(ports[i] == GPIOB){
+      My_GPIO_InitStructB.Pin |= (pins[i]);
+    }
+    if(ports[i] == GPIOC){
+      My_GPIO_InitStructC.Pin |= (pins[i]);
+    }
 
-  My_GPIO_InitStructB.Pin = (uint16_t)(GPIO_PIN_14);
+  }
 
-  My_GPIO_InitStructB.Mode = GPIO_MODE_OUTPUT_PP;
-  My_GPIO_InitStructB.Pull = GPIO_NOPULL;
-  My_GPIO_InitStructB.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOB, &My_GPIO_InitStructB);
+  if(My_GPIO_InitStructA.Pin != 0){
+    My_GPIO_InitStructA.Mode = GPIO_MODE_OUTPUT_PP;
+    My_GPIO_InitStructA.Pull = GPIO_NOPULL;
+    My_GPIO_InitStructA.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOA, &My_GPIO_InitStructA);
+  }
+  
 
-  My_GPIO_InitStructC.Pin = (uint16_t)(GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_8);
+  if(My_GPIO_InitStructB.Pin != 0){
+    My_GPIO_InitStructB.Mode = GPIO_MODE_OUTPUT_PP;
+    My_GPIO_InitStructB.Pull = GPIO_NOPULL;
+    My_GPIO_InitStructB.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOB, &My_GPIO_InitStructB);
+  }
 
-  My_GPIO_InitStructC.Mode = GPIO_MODE_OUTPUT_PP;
-  My_GPIO_InitStructC.Pull = GPIO_NOPULL;
-  My_GPIO_InitStructC.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOC, &My_GPIO_InitStructC);
-
-  // Setup MONI as Input
-  My_GPIO_InitStructCIn.Pin = GPIO_PIN_9;
-  My_GPIO_InitStructCIn.Mode = GPIO_MODE_INPUT;
-  My_GPIO_InitStructCIn.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &My_GPIO_InitStructCIn);
+  if(My_GPIO_InitStructC.Pin != 0){
+    My_GPIO_InitStructC.Mode = GPIO_MODE_OUTPUT_PP;
+    My_GPIO_InitStructC.Pull = GPIO_NOPULL;
+    My_GPIO_InitStructC.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOC, &My_GPIO_InitStructC);
+  }
 
   // Set up interrupt with timer3
   __HAL_RCC_TIM3_CLK_ENABLE();
