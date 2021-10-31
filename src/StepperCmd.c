@@ -21,29 +21,29 @@
 -------------------------- PRE-COMPILER DEFINITIONS -----------------------
 ***************************************************************************/
 /* Stepper Motor Pins */
-#define OE_PIN GPIO_PIN_4
-#define OE_PORT GPIOC
+#define OE_PIN (GPIO_PIN_4)
+#define OE_PORT (GPIOC)
 
-#define RST_PIN GPIO_PIN_3
-#define RST_PORT GPIOC
+#define RST_PIN (GPIO_PIN_3)
+#define RST_PORT (GPIOC)
 
-#define PS_PIN GPIO_PIN_8
-#define PS_PORT GPIOC
+#define PS_PIN (GPIO_PIN_8)
+#define PS_PORT (GPIOC)
 
-#define STEP_PIN GPIO_PIN_14
-#define STEP_PORT GPIOB
+#define STEP_PIN (GPIO_PIN_14)
+#define STEP_PORT (GPIOB)
 
-#define FR_PIN GPIO_PIN_5
-#define FR_PORT GPIOC
+#define FR_PIN (GPIO_PIN_5)
+#define FR_PORT (GPIOC)
 
-#define VREF_PIN GPIO_PIN_4
-#define VREF_PORT GPIOA
+#define VREF_PIN (GPIO_PIN_4)
+#define VREF_PORT (GPIOA)
 
-#define MONI_PIN GPIO_PIN_9
-#define MONI_PORT GPIOC
+#define MONI_PIN (GPIO_PIN_9)
+#define MONI_PORT (GPIOC)
 
 uint16_t pins[] = {OE_PIN, RST_PIN, PS_PIN, STEP_PIN, FR_PIN, VREF_PIN};
-uint16_t ports[] = {OE_PORT, RST_PORT, PS_PORT, STEP_PIN, FR_PORT, VREF_PORT};
+GPIO_TypeDef* ports[] = {OE_PORT, RST_PORT, PS_PORT, STEP_PORT, FR_PORT, VREF_PORT};
 
 #define MAX_TIMERS 16         // maximum number of timers
 
